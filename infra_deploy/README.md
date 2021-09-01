@@ -24,7 +24,11 @@ publicly available Amazon machine image (AMI) by default. The AMI can be customi
 through modifications to the [build configuration script](../shared/scripts/setup.sh) 
 and [packer.json](packer.json).
 
-Change directory to aws/packer and run the following:
+Change directory to aws/packer.
+
+Take a look at the packer.json file. You may want to alter some attributes such as the AWS region.
+
+When you are happy with the file, run the following:
 
 ```bash
 $ packer build packer.json
@@ -41,7 +45,7 @@ Copy the terraform.tfvars.example file to terraform.tfvars
 Make sure you alter the region, SSH key name and AMI ID at a minimum:
 
 ```bash
-region                  = "us-east-1"
+region                  = "ap-southeast-2"
 ami                     = "ami-09730698a875f6abd"
 instance_type           = "t2.medium"
 key_name                = "KEY_NAME"
@@ -67,6 +71,6 @@ $ ssh -i /path/to/private/key ubuntu@PUBLIC_IP
 ```
 
 The infrastructure that is provisioned for this test environment is configured to 
-allow all traffic over port 22. This is obviously not recommended for production 
+allow traffic to port 22 from the Whitelist IP you have nominated. If you input 0.0.0.0/0 here then this port is open to the world. This is obviously not recommended for production 
 deployments.
 
