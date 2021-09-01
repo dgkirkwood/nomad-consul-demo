@@ -8,9 +8,13 @@ This repository contains all the code you will need to deploy a highly available
 ## How to use this repository
 
 Explore the subdirectories to familiarise yourself with the code. 
-1.  /infra_deploy contains Packer and Terraform definitions to build the VMs and supporting elements on AWS. **Start here and follow the README instructions.**
+1.  /infra_deploy contains Packer and Terraform definitions to build the VMs and supporting elements on AWS. 
 
-2. /app_deploy contains Nomad and Consul definitions for the application used in this demo **Use this folder if you want an application to test in the environment**
+    **Start here and follow the README instructions.**
+
+2. /app_deploy contains Nomad and Consul definitions for the application used in this demo.
+
+    **Use this folder if you want an application to test in the environment**
 
 /shared contains configuration and scripts that are consumed by the Packer build in step 1.
 
