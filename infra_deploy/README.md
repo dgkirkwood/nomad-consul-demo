@@ -24,7 +24,7 @@ publicly available Amazon machine image (AMI) by default. The AMI can be customi
 through modifications to the [build configuration script](../shared/scripts/setup.sh) 
 and [packer.json](packer.json).
 
-Change directory to aws/packer.
+Change directory to /infra_deploy/packer.
 
 Take a look at the packer.json file. You may want to alter some attributes such as the AWS region.
 
@@ -38,7 +38,7 @@ Once this build is complete, copy the AMI ID to be used in the next step.
 
 ## Provision a cluster with Terraform
 
-Change directory to aws/
+Change directory to ./infra_deploy/
 
 Copy the terraform.tfvars.example file to terraform.tfvars
 
@@ -74,3 +74,6 @@ The infrastructure that is provisioned for this test environment is configured t
 allow traffic to port 22 from the Whitelist IP you have nominated. If you input 0.0.0.0/0 here then this port is open to the world. This is obviously not recommended for production 
 deployments.
 
+## What next?
+
+You now have a working Nomad and Consul cluster ready to receive workloads. You may have your own job definition, or may want to use the demo application located in the ../app_deploy folder.
