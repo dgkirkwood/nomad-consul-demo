@@ -1,0 +1,5 @@
+{
+    "Kind": "service-defaults",
+    "Name": "prod-payments",
+    "Protocol": "http"
+  }

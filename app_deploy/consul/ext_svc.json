@@ -1,0 +1,17 @@
+{
+    "ID": "mysql",
+    "Name": "prod-mysql",
+    "Tags": ["rds", "aws"],
+    "Address": "RDS_IP",
+    "Port": 3306,
+    "Meta": {
+      "mysql_version": "5.7"
+    },
+    "EnableTagOverride": false,
+    "Check": {
+      "name": "tcp on port 3306",
+      "tcp": "RDS_IP:3306",
+      "interval": "10s",
+      "timeout": "1s"
+    }
+  }
