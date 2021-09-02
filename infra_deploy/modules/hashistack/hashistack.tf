@@ -317,70 +317,111 @@ data "template_file" "user_data_client" {
   }
 }
 
-resource "aws_instance" "server" {
-  ami                    = var.ami
-  instance_type          = var.server_instance_type
-  key_name               = var.key_name
-  vpc_security_group_ids = [aws_security_group.primary.id]
-  count                  = var.server_count
-  subnet_id              = aws_subnet.nomadconsul[0].id
-
-  # instance tags
-  tags = merge(
-    {
-      "Name" = "${var.name}-server-${count.index}"
-    },
-    {
-      "${var.retry_join.tag_key}" = "${var.retry_join.tag_value}"
-    },
-  )
-
-  root_block_device {
-    volume_type           = "gp2"
-    volume_size           = var.root_block_device_size
-    delete_on_termination = "true"
-  }
-
-  user_data            = data.template_file.user_data_server.rendered
-  iam_instance_profile = aws_iam_instance_profile.instance_profile.name
+resource "aws_placement_group" "server" {
+  name     = "server-group"
+  strategy = "spread"
 }
 
-resource "aws_instance" "client" {
-  ami                    = var.ami
-  instance_type          = var.client_instance_type
+resource "aws_autoscaling_group" "server" {
+  name = "nomad-server"
+  max_size = 5
+  min_size = 1
+  desired_capacity = var.server_count
+  force_delete = true
+  placement_group = aws_placement_group.server.id
+  launch_configuration = aws_launch_configuration.server.name
+  vpc_zone_identifier = [aws_subnet.nomadconsul[0].id]
+  target_group_arns = [aws_lb_target_group.nomadtarget.arn, aws_lb_target_group.consultarget.arn, aws_lb_target_group.apptarget.arn]
+  instance_refresh {
+    strategy = "Rolling"
+    triggers = ["launch_configuration"]
+  }
+  tag {
+      key = var.retry_join.tag_key
+      value = var.retry_join.tag_value
+      propagate_at_launch = true
+    }
+  lifecycle {
+    create_before_destroy = true
+  }
+  
+}
+
+resource "aws_launch_configuration" "server" {
+  name_prefix          = "server2"
+  image_id      = var.ami
+  instance_type = var.server_instance_type
+  security_groups = [aws_security_group.primary.id]
+  user_data            = data.template_file.user_data_server.rendered
+  iam_instance_profile = aws_iam_instance_profile.instance_profile.name
   key_name               = var.key_name
-  vpc_security_group_ids = [aws_security_group.primary.id]
-  count                  = var.client_count
-  subnet_id              = aws_subnet.nomadconsul[count.index % 3].id
-
-  depends_on             = [aws_instance.server]
-
-  # instance tags
-  tags = merge(
-    {
-      "Name" = "${var.name}-client-${count.index}"
-    },
-    {
-      "${var.retry_join.tag_key}" = "${var.retry_join.tag_value}"
-    },
-  )
-
   root_block_device {
     volume_type           = "gp2"
     volume_size           = var.root_block_device_size
     delete_on_termination = "true"
   }
+  # lifecycle {
+  #   create_before_destroy = true
+  # }
+}
 
+
+
+resource "aws_placement_group" "client" {
+  name     = "client-group"
+  strategy = "spread"
+}
+
+resource "aws_autoscaling_group" "client" {
+  name = "nomad-client"
+  max_size = 5
+  min_size = 1
+  desired_capacity = var.client_count
+  force_delete = true
+  placement_group = aws_placement_group.client.id
+  launch_configuration = aws_launch_configuration.client.name
+  vpc_zone_identifier = [aws_subnet.nomadconsul[0].id, aws_subnet.nomadconsul[1].id, aws_subnet.nomadconsul[2].id]
+  target_group_arns = [aws_lb_target_group.nomadtarget.arn, aws_lb_target_group.consultarget.arn, aws_lb_target_group.apptarget.arn]
+  instance_refresh {
+    strategy = "Rolling"
+    triggers = ["launch_configuration"]
+  }
+  tag {
+      key = var.retry_join.tag_key
+      value = var.retry_join.tag_value
+      propagate_at_launch = true
+    }
+  lifecycle {
+    create_before_destroy = true
+  }
+  
+}
+
+resource "aws_launch_configuration" "client" {
+  name_prefix          = "client"
+  image_id      = var.ami
+  instance_type = var.client_instance_type
+  security_groups = [aws_security_group.primary.id]
+  user_data            = data.template_file.user_data_client.rendered
+  iam_instance_profile = aws_iam_instance_profile.instance_profile.name
+  key_name               = var.key_name
+  root_block_device {
+    volume_type           = "gp2"
+    volume_size           = var.root_block_device_size
+    delete_on_termination = "true"
+  }
   ebs_block_device {
     device_name           = "/dev/xvdd"
     volume_type           = "gp2"
     volume_size           = "50"
     delete_on_termination = "true"
   }
-
-  user_data            = data.template_file.user_data_client.rendered
-  iam_instance_profile = aws_iam_instance_profile.instance_profile.name
+  # lifecycle {
+  #   create_before_destroy = true
+  # }
 }
+
+
 
 resource "aws_iam_instance_profile" "instance_profile" {
   name_prefix = var.name
@@ -424,25 +465,25 @@ data "aws_iam_policy_document" "auto_discover_cluster" {
   }
 }
 
-resource "aws_elb" "server_lb" {
-  name               = "${var.name}-server-lb"
-  subnets            = [aws_subnet.nomadconsul[0].id]
-  internal           = false
-  instances          = aws_instance.server.*.id
-  listener {
-    instance_port     = 4646
-    instance_protocol = "tcp"
-    lb_port           = 4646
-    lb_protocol       = "tcp"
-  }
-  listener {
-    instance_port     = 8500
-    instance_protocol = "http"
-    lb_port           = 8500
-    lb_protocol       = "http"
-  }
-  security_groups = [aws_security_group.server_lb.id]
-}
+# resource "aws_elb" "server_lb" {
+#   name               = "${var.name}-server-lb"
+#   subnets            = [aws_subnet.nomadconsul[0].id]
+#   internal           = false
+#   instances          = aws_instance.server.*.id
+#   listener {
+#     instance_port     = 4646
+#     instance_protocol = "tcp"
+#     lb_port           = 4646
+#     lb_protocol       = "tcp"
+#   }
+#   listener {
+#     instance_port     = 8500
+#     instance_protocol = "http"
+#     lb_port           = 8500
+#     lb_protocol       = "http"
+#   }
+#   security_groups = [aws_security_group.server_lb.id]
+# }
 
 resource "aws_lb" "alb" {
   internal = false
@@ -486,6 +527,12 @@ resource "aws_lb_target_group" "nomadtarget" {
   port = 4646
   protocol = "HTTP"
   vpc_id = aws_vpc.nomadconsul.id
+  health_check {
+    port = 4646
+    protocol = "HTTP"
+    path = "/v1/agent/health"
+    interval = 10
+  }
 
 }
 
@@ -494,7 +541,12 @@ resource "aws_lb_target_group" "consultarget" {
   port = 8500
   protocol = "HTTP"
   vpc_id = aws_vpc.nomadconsul.id
-
+  health_check {
+    port = 8500
+    protocol = "HTTP"
+    path = "/v1/status/leader"
+    interval = 10
+  }
 }
 
 resource "aws_lb_target_group" "apptarget" {
@@ -511,42 +563,19 @@ resource "aws_lb_target_group" "apptarget" {
 
 }
 
-# resource "aws_lb_target_group_attachment" "nomadattach" {
-#   for_each = toset([for s in aws_instance.server: s.id])
-#   target_group_arn = aws_lb_target_group.nomadtarget.arn
-#   target_id = each.value
-# }
-
-# resource "aws_lb_target_group_attachment" "consulattach" {
-#   for_each = toset([for s in aws_instance.server: s.id])
-#   target_group_arn = aws_lb_target_group.consultarget.arn
-#   target_id = each.value
-# }
-
-# resource "aws_lb_target_group_attachment" "appattach" {
-#   for_each = toset([for s in aws_instance.client: s.id])
-#   target_group_arn = aws_lb_target_group.apptarget.arn
-#   target_id = each.value
-# }
-
-
 
 output "server_public_ips" {
-   value = aws_instance.server[*].public_ip
+   value = ["aws_instance.server[*].public_ip"]
 }
 
 output "client_public_ips" {
-   value = aws_instance.client[*].public_ip
+   value = ["aws_instance.client[*].public_ip"]
 }
 
 output "server_lb_ip" {
-  value = aws_elb.server_lb.dns_name
+  value = aws_lb.alb.dns_name
 }
 
 output "RDS_IP" {
   value = var.deploy_rds == true ? data.aws_network_interface.rds[0].private_ip : "Not Deployed"
-}
-
-output "tuple" {
-  value = aws_instance.server
 }

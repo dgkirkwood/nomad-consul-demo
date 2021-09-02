@@ -61,5 +61,5 @@ variable "nomad_binary" {
 
 variable "deploy_rds" {
   description = "Flag used to decide on RDS deployment. Set to false if not using the demo application."
-  default = true
+  default = false
 }
