@@ -3,7 +3,7 @@ provider "aws" {
 }
 
 module "hashistack" {
-  source = "../../modules/hashistack"
+  source = "./modules/hashistack"
 
   name                   = var.name
   region                 = var.region
