@@ -36,8 +36,3 @@ Set the following for access from the Nomad CLI and ease of Consul config:
 CONFIGURATION
 
 }
-
-
-output "tuple" {
-  value = [for s in module.hashistack.tuple: s.arn]
-}

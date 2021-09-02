@@ -31,6 +31,11 @@ variable "root_block_device_size" {
 variable "whitelist_ip" {
 }
 
+variable "deploy_rds" {
+  type = bool
+  default = true
+}
+
 data "aws_availability_zones" "available" {}
 
 variable "retry_join" {
@@ -83,6 +88,7 @@ resource "aws_route_table_association" "demo" {
 }
 
 resource "aws_db_instance" "my_rds" {
+  count = (var.deploy_rds == true ? 1 : 0)
   allocated_storage    = 20
   storage_type         = "gp2"
   engine               = "mysql"
@@ -92,17 +98,19 @@ resource "aws_db_instance" "my_rds" {
   username             = "admin"
   password             = "dbAcce$$123"
   parameter_group_name = "default.mysql5.7"
-  db_subnet_group_name = aws_db_subnet_group.my_rds.name
+  db_subnet_group_name = aws_db_subnet_group.my_rds[0].name
   vpc_security_group_ids = [aws_security_group.primary.id]
   skip_final_snapshot = true
 }
 
 resource "aws_db_subnet_group" "my_rds" {
+  count = (var.deploy_rds == true ? 1 : 0)
   name       = "nomadconsuldemo"
   subnet_ids = [aws_subnet.nomadconsul[0].id, aws_subnet.nomadconsul[1].id]
 }
 
 data "aws_network_interface" "rds" {
+  count = (var.deploy_rds == true ? 1 : 0)
   filter {
     name   = "subnet-id"
     values = [aws_subnet.nomadconsul[0].id, aws_subnet.nomadconsul[1].id]
@@ -503,23 +511,23 @@ resource "aws_lb_target_group" "apptarget" {
 
 }
 
-resource "aws_lb_target_group_attachment" "nomadattach" {
-  for_each = toset([for s in aws_instance.server: s.id])
-  target_group_arn = aws_lb_target_group.nomadtarget.arn
-  target_id = each.value
-}
+# resource "aws_lb_target_group_attachment" "nomadattach" {
+#   for_each = toset([for s in aws_instance.server: s.id])
+#   target_group_arn = aws_lb_target_group.nomadtarget.arn
+#   target_id = each.value
+# }
 
-resource "aws_lb_target_group_attachment" "consulattach" {
-  for_each = toset([for s in aws_instance.server: s.id])
-  target_group_arn = aws_lb_target_group.consultarget.arn
-  target_id = each.value
-}
+# resource "aws_lb_target_group_attachment" "consulattach" {
+#   for_each = toset([for s in aws_instance.server: s.id])
+#   target_group_arn = aws_lb_target_group.consultarget.arn
+#   target_id = each.value
+# }
 
-resource "aws_lb_target_group_attachment" "appattach" {
-  for_each = toset([for s in aws_instance.client: s.id])
-  target_group_arn = aws_lb_target_group.apptarget.arn
-  target_id = each.value
-}
+# resource "aws_lb_target_group_attachment" "appattach" {
+#   for_each = toset([for s in aws_instance.client: s.id])
+#   target_group_arn = aws_lb_target_group.apptarget.arn
+#   target_id = each.value
+# }
 
 
 
@@ -536,7 +544,7 @@ output "server_lb_ip" {
 }
 
 output "RDS_IP" {
-  value = data.aws_network_interface.rds.private_ip
+  value = var.deploy_rds == true ? data.aws_network_interface.rds[0].private_ip : "Not Deployed"
 }
 
 output "tuple" {

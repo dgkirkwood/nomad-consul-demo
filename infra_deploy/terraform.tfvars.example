@@ -39,3 +39,9 @@ client_count         = "4"
 # to 0.0.0.0/0 for world).  
 #  - If it is not provided here, it will be requested interactively.
 whitelist_ip = "Set your public IP here"
+
+
+# `deploy_rds` (optional, true) - Decide whether to include an RDS instance in your
+# Terraform deploy. This is used for the demo application but is otherwise not necessary
+# if you are only standing up the server clusters. 
+deploy_rds = true
