@@ -58,3 +58,8 @@ variable "nomad_binary" {
   description = "Used to replace the machine image installed Nomad binary."
   default     = "none"
 }
+
+variable "deploy_rds" {
+  description = "Flag used to decide on RDS deployment. Set to false if not using the demo application."
+  default = true
+}

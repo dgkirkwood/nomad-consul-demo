@@ -17,4 +17,5 @@ module "hashistack" {
   nomad_binary           = var.nomad_binary
   root_block_device_size = var.root_block_device_size
   whitelist_ip           = var.whitelist_ip
+  deploy_rds             = var.deploy_rds
 }
