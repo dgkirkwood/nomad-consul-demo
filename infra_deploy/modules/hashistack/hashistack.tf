@@ -135,6 +135,14 @@ resource "aws_security_group" "server_lb" {
     cidr_blocks = [var.whitelist_ip]
   }
 
+  # App ingress
+  ingress {
+    from_port   = 5000
+    to_port     = 5000
+    protocol    = "tcp"
+    cidr_blocks = [var.whitelist_ip]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -180,6 +188,7 @@ resource "aws_security_group" "primary" {
     to_port     = 5000
     protocol    = "tcp"
     cidr_blocks = [var.whitelist_ip]
+    security_groups = [aws_security_group.server_lb.id]
   }
 
   ingress {
@@ -427,6 +436,93 @@ resource "aws_elb" "server_lb" {
   security_groups = [aws_security_group.server_lb.id]
 }
 
+resource "aws_lb" "alb" {
+  internal = false
+  security_groups = [aws_security_group.server_lb.id]
+  subnets            = [aws_subnet.nomadconsul[0].id, aws_subnet.nomadconsul[1].id, aws_subnet.nomadconsul[2].id]
+
+}
+
+resource "aws_lb_listener" "nomadlistener" {
+  load_balancer_arn = aws_lb.alb.arn
+  port = "4646"
+  protocol = "HTTP"
+  default_action {
+    type = "forward"
+    target_group_arn = aws_lb_target_group.nomadtarget.arn
+  }
+}
+
+resource "aws_lb_listener" "consullistener" {
+  load_balancer_arn = aws_lb.alb.arn
+  port = "8500"
+  protocol = "HTTP"
+  default_action {
+    type = "forward"
+    target_group_arn = aws_lb_target_group.consultarget.arn
+  }
+}
+
+resource "aws_lb_listener" "applistener" {
+  load_balancer_arn = aws_lb.alb.arn
+  port = "5000"
+  protocol = "HTTP"
+  default_action {
+    type = "forward"
+    target_group_arn = aws_lb_target_group.apptarget.arn
+  }
+}
+
+resource "aws_lb_target_group" "nomadtarget" {
+  target_type = "instance"
+  port = 4646
+  protocol = "HTTP"
+  vpc_id = aws_vpc.nomadconsul.id
+
+}
+
+resource "aws_lb_target_group" "consultarget" {
+  target_type = "instance"
+  port = 8500
+  protocol = "HTTP"
+  vpc_id = aws_vpc.nomadconsul.id
+
+}
+
+resource "aws_lb_target_group" "apptarget" {
+  target_type = "instance"
+  port = 5000
+  protocol = "HTTP"
+  vpc_id = aws_vpc.nomadconsul.id
+  health_check {
+    port = 5000
+    protocol = "HTTP"
+    path = "/"
+    interval = 10
+  }
+
+}
+
+resource "aws_lb_target_group_attachment" "nomadattach" {
+  for_each = toset([for s in aws_instance.server: s.id])
+  target_group_arn = aws_lb_target_group.nomadtarget.arn
+  target_id = each.value
+}
+
+resource "aws_lb_target_group_attachment" "consulattach" {
+  for_each = toset([for s in aws_instance.server: s.id])
+  target_group_arn = aws_lb_target_group.consultarget.arn
+  target_id = each.value
+}
+
+resource "aws_lb_target_group_attachment" "appattach" {
+  for_each = toset([for s in aws_instance.client: s.id])
+  target_group_arn = aws_lb_target_group.apptarget.arn
+  target_id = each.value
+}
+
+
+
 output "server_public_ips" {
    value = aws_instance.server[*].public_ip
 }
@@ -441,4 +537,8 @@ output "server_lb_ip" {
 
 output "RDS_IP" {
   value = data.aws_network_interface.rds.private_ip
+}
+
+output "tuple" {
+  value = aws_instance.server
 }
